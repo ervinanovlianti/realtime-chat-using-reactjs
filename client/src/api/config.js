@@ -1,1 +1,1 @@
-export const baseUrl = "https://longue404.herokuapp.com";
+export const baseUrl = "http://localhost:8090";

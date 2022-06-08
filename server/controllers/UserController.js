@@ -1,4 +1,11 @@
 const User = require("../models/User");
+const {
+    comparePassword
+} = require("../helper/bcrypt");
+const {
+    generateToken
+} = require("../helper/jwt");
+
 
 class UserController {
     static async register(req, res) {
@@ -21,8 +28,43 @@ class UserController {
             console.log(error)
         }
     }
+    // login logic
+    static async login(req, res, next) {
+        try {
+            // cari user berdasarkan email
+            const foundUser = await User.findOne({
+                email: req.body.email
+            }).exec();
+
+            // user ketemu, compare(bandingkan) password dari input dengan dari function foundUser
+            if (foundUser && comparePassword(req.body.password, foundUser.password)) {
+                // susun payload yang akan di generate menjadi token
+                // balikin access_token
+                const tokenPayload = {
+                    id: foundUser._id,
+                    username: foundUser.username,
+                    email: foundUser.email,
+                }
+                const access_token = generateToken(tokenPayload);
+                // kembalikan token sebagai response
+                return res.status(200).json({
+                    data: access_token,
+                    message: "sucess login",
+                    status: "success",
+                });
+
+            } else {
+                throw {
+                    status: 400,
+                    message: "Invalid Username or Password",
+                };
+            }
+        } catch (error) {
+            next(error);
+        }
+    }
     // get all data user
-    static async findAllUser(req, res) {
+    static async findAllUser(req, res, next) {
         try {
             const data = await User.find({}).exec();
 
@@ -34,7 +76,7 @@ class UserController {
                     status: "success"
                 });
         } catch (error) {
-            console.log(error)
+            next(error)
         }
     }
     // get user data by id
@@ -59,7 +101,7 @@ class UserController {
             // dari data yang dicari, lakukan update
             // lalu save
 
-            const id = req.param.id;
+            const id = req.loggedUser.id;
             const data = await User.findById(id).exec();
 
             // Updated data
@@ -84,21 +126,43 @@ class UserController {
     static async deleteUser(req, res) {
         try {
             // mencari data user sesuai id
-            const id = req.param.id;
+            const id = req.loggedUser.id;
             const data = await User.findById(id).exec();
 
             const deleted = await data.remove();
 
             return res
-            .status(200)
-            .json({
-                data : deleted,
-                message: "Success Delete Data User",
-                status: "success"
-        })
+                .status(200)
+                .json({
+                    data: deleted,
+                    message: "Success Delete Data User",
+                    status: "success"
+                })
 
         } catch (error) {
 
+        }
+    }
+
+    static async findLoggedUser(req, res, next) {
+        try {
+            const id = req.loggedUser.id;
+            const data = await User.findById(id).exec();
+            // jika user tidak ada
+            if (data === null) {
+                throw {
+                    status: 404,
+                    message: "User Not Found",
+                };
+            }
+            return res.status(200).json({
+                data: data,
+                message: "success fond logged user",
+                status: "success",
+            });
+
+        } catch (error) {
+            next(error);
         }
     }
 }
